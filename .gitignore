@@ -2,3 +2,10 @@ patches/
 .gitignore
 *.o
 st
+
+# --- fork additions ---
+# Leftover checkout of the separate suckless `scroll` program. Unused here:
+# config.h sets `char *scroll = NULL;`.
+scroll/
+# Stale patch note, superseded by the commits on this branch.
+changes_by_me

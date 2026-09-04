@@ -5,8 +5,17 @@
  *
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
-static char *font = "mono:pixelsize=12:antialias=true:autohint=true";
-static char *font2[] = { "JoyPixels:pixelsize=10:antialias=true:autohint=true" };
+/* Fallback only: this build reads X resources, so *.font in
+ * ~/.config/x11/xresources overrides the line below. It still has to name a
+ * family that actually exists -- "Nimbus Mono" does not (the installed family
+ * is "Nimbus Mono PS"), so st was falling through to whatever fontconfig
+ * happened to substitute.
+ * font2 is the fallback for glyphs the primary font lacks; pointing it at the
+ * Nerd Font symbol set makes the icons used throughout these dotfiles render
+ * in the terminal too. */
+static char *font = "Liberation Mono:pixelsize=18:antialias=true:autohint=true";
+static char *font2[] = { "Symbols Nerd Font Mono:pixelsize=18:antialias=true:autohint=true" };
+
 static int borderpx = 2;
 
 /*
