@@ -2041,11 +2041,35 @@ kmap(KeySym k, uint state)
 	return NULL;
 }
 
+/*
+ * Shortcuts are bound to Latin keysyms. On a non-Latin layout, use the key's
+ * Latin letter from another level or group, cased by Shift, so they still fire.
+ */
+static KeySym
+latinsym(XKeyEvent *e, KeySym ksym)
+{
+	KeySym s, lo, up;
+	int g, l;
+
+	if (ksym <= 0xff)
+		return ksym;
+	for (g = 0; g < XkbNumKbdGroups; g++) {
+		for (l = 0; l < 2; l++) {
+			s = XkbKeycodeToKeysym(xw.dpy, e->keycode, g, l);
+			if ((s >= XK_a && s <= XK_z) || (s >= XK_A && s <= XK_Z)) {
+				XConvertCase(s, &lo, &up);
+				return (e->state & ShiftMask) ? up : lo;
+			}
+		}
+	}
+	return ksym;
+}
+
 void
 kpress(XEvent *ev)
 {
 	XKeyEvent *e = &ev->xkey;
-	KeySym ksym;
+	KeySym ksym, lsym;
 	char *buf = NULL, *customkey;
 	int len = 0;
 	int buf_size = 64;
@@ -2079,8 +2103,9 @@ reallocbuf:
 		len = XLookupString(e, buf, buf_size, &ksym, NULL);
 	}
 	/* 1. shortcuts */
+	lsym = latinsym(e, ksym);
 	for (bp = shortcuts; bp < shortcuts + LEN(shortcuts); bp++) {
-		if (ksym == bp->keysym && match(bp->mod, e->state)) {
+		if (lsym == bp->keysym && match(bp->mod, e->state)) {
 			bp->func(&(bp->arg));
 			goto cleanup;
 		}
