@@ -2,6 +2,7 @@ patches/
 .gitignore
 *.o
 st
+*.orig
 
 # --- fork additions ---
 # Leftover checkout of the separate suckless `scroll` program. Unused here:
