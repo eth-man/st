@@ -397,6 +397,7 @@ mousesel(XEvent *e, int done)
 {
 	int type, seltype = SEL_REGULAR;
 	uint state = e->xbutton.state & ~(Button1Mask | forcemousemod);
+	char *str;
 
 	for (type = 1; type < LEN(selmasks); ++type) {
 		if (match(selmasks[type], state)) {
@@ -405,8 +406,10 @@ mousesel(XEvent *e, int done)
 		}
 	}
 	selextend(evcol(e), evrow(e), seltype, done);
-	if (done)
-		setsel(getsel(), e->xbutton.time);
+	if (done && (str = getsel())) {
+		setsel(str, e->xbutton.time);
+		clipcopy(NULL);
+	}
 }
 
 void
