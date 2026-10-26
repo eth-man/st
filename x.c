@@ -183,6 +183,8 @@ static void xseturgency(int);
 static int evcol(XEvent *);
 static int evrow(XEvent *);
 static float clamp(float, float, float);
+static void sigreload(int);
+static void reloadresources(void);
 
 static void expose(XEvent *);
 static void visibility(XEvent *);
@@ -276,6 +278,7 @@ static char *opt_title = NULL;
 static int focused = 0;
 
 static int oldbutton = 3; /* button event on startup: 3 = release */
+static volatile sig_atomic_t reloadwanted; /* SIGUSR1: reread colours */
 static uint buttons; /* bit field of pressed buttons */
 static int selecting = 0; /* a Button1 selection is in progress */
 static XEvent lastselev;  /* last event that moved it, to finish a lost release */
@@ -2198,6 +2201,11 @@ run(void)
 	cresize(w, h);
 
 	for (timeout = -1, drawing = 0, lastblink = (struct timespec){0};;) {
+		if (reloadwanted) {
+			reloadwanted = 0;
+			reloadresources();
+		}
+
 		FD_ZERO(&rfd);
 		FD_SET(ttyfd, &rfd);
 		FD_SET(xfd, &rfd);
@@ -2306,20 +2314,43 @@ resource_load(XrmDatabase db, char *name, enum resource_type rtype, void *dst)
 }
 
 void
-config_init(void)
+config_init(Display *dpy)
 {
 	char *resm;
 	XrmDatabase db;
 	ResourcePref *p;
 
 	XrmInitialize();
-	resm = XResourceManagerString(xw.dpy);
+	resm = XResourceManagerString(dpy);
 	if (!resm)
 		return;
 
 	db = XrmGetStringDatabase(resm);
 	for (p = resources; p < resources + LEN(resources); p++)
 		resource_load(db, p->name, p->type, p->dst);
+}
+
+static void
+sigreload(int unused)
+{
+	reloadwanted = 1;
+}
+
+static void
+reloadresources(void)
+{
+	Display *dpy;
+
+	/* a new connection, since xw.dpy keeps the resources it started with */
+	if (!(dpy = XOpenDisplay(NULL)))
+		return;
+	config_init(dpy);
+	XCloseDisplay(dpy);
+
+	alphaUnfocus = clamp(alpha-alphaOffset, 0.0, 1.0);
+	xloadcols();
+	xclear(0, 0, win.w, win.h);
+	redraw();
 }
 
 void
@@ -2338,6 +2369,8 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+	struct sigaction sa = { .sa_handler = sigreload };
+
 	xw.l = xw.t = 0;
 	xw.isfixed = False;
 	xsetcursor(cursorshape);
@@ -2402,7 +2435,8 @@ run:
 	if(!(xw.dpy = XOpenDisplay(NULL)))
 		die("Can't open display\n");
 
-	config_init();
+	config_init(xw.dpy);
+	sigaction(SIGUSR1, &sa, NULL); /* no SA_RESTART: wakes run() */
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
 	defaultbg = MAX(LEN(colorname), 256);
